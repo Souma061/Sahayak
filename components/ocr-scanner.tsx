@@ -123,16 +123,34 @@ export default function SmartScanner() {
     window.speechSynthesis.speak(uttrance);
   };
 
+  const [sourceLang, setSourceLang] = useState("eng");
+
   useEffect(() => {
     const initWorker = async () => {
-      workerRef.current = await Tesseract.createWorker("eng");
+      // Re-initialize worker when source language changes
+      if (workerRef.current) {
+        await workerRef.current.terminate();
+      }
+
+      // Tesseract language codes
+      // English: eng, Hindi: hin, Bengali: ben, Tamil: tam, Telugu: tel
+      const langMap: Record<string, string> = {
+        en: "eng",
+        hi: "hin",
+        bn: "ben",
+        ta: "tam",
+        te: "tel",
+      };
+
+      const tesseractLang = langMap[sourceLang] || "eng";
+      workerRef.current = await Tesseract.createWorker(tesseractLang);
     };
     initWorker();
 
     return () => {
       workerRef.current?.terminate();
     };
-  }, []);
+  }, [sourceLang]);
 
   const capture = () => {
     const image = webcamRef.current?.getScreenshot();
@@ -266,6 +284,24 @@ export default function SmartScanner() {
         onDelete={deleteFromHistory}
       />
 
+      {/* Source Language Selector */}
+      <div className="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/10 w-full max-w-xs">
+        <span className="text-gray-400 text-xs font-bold uppercase tracking-widest pl-2">
+          Tap to Scan:
+        </span>
+        <select
+          value={sourceLang}
+          onChange={(e) => setSourceLang(e.target.value)}
+          className="bg-transparent text-sm font-bold text-white outline-none flex-1 cursor-pointer [&>option]:text-black"
+        >
+          <option value="en">English Document</option>
+          <option value="hi">Hindi (हिंदी)</option>
+          <option value="bn">Bengali (বাংলা)</option>
+          <option value="ta">Tamil (தமிழ்)</option>
+          <option value="te">Telugu (తెలుగు)</option>
+        </select>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start px-4 md:px-0">
         {/* LEFT COLUMN: Camera & Input Controls */}
         <div className="flex flex-col gap-6 bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-3xl p-6">
@@ -275,8 +311,13 @@ export default function SmartScanner() {
                 <Webcam
                   ref={webcamRef}
                   screenshotFormat="image/png"
+                  forceScreenshotSourceSize={true}
                   className="w-full h-full object-cover opacity-80"
-                  videoConstraints={{ facingMode: "environment" }}
+                  videoConstraints={{
+                    facingMode: "environment",
+                    width: 1280,
+                    height: 720,
+                  }}
                 />
                 {/* Scanner Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent pointer-events-none animate-scan opacity-50" />
