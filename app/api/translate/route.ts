@@ -23,16 +23,24 @@ export async function POST(request: Request) {
       });
     }
 
+    console.log(`Attempting to translate text with Lingo.dev to ${targetLang || 'hi'}...`);
+
     // Call Lingo.dev
     const translatedText = await lingo.localizeText(text, {
       sourceLocale: "en",
       targetLocale: targetLang || 'hi', // Default to Hindi
     });
 
+    console.log("Translation successful:", translatedText);
+
     return NextResponse.json({ translatedText });
 
   } catch (error) {
-    console.error('Translation Error:', error);
-    return NextResponse.json({ error: 'Failed to translate' }, { status: 500 });
+    console.error('Translation Error Detailed:', error);
+    // Return the actual error message for debugging
+    return NextResponse.json({
+      error: 'Failed to translate',
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }

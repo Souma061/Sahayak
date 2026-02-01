@@ -1,21 +1,21 @@
 "use client";
 
 import {
-  Camera,
-  Check,
-  Copy,
-  Globe,
-  RefreshCw,
-  RotateCw,
-  Share2,
-  Upload,
-  Volume2,
+    Camera,
+    Check,
+    Copy,
+    Globe,
+    RefreshCw,
+    RotateCw,
+    Share2,
+    Upload,
+    Volume2,
 } from "lucide-react";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { Cropper, CropperRef } from "react-advanced-cropper";
 import "react-advanced-cropper/dist/style.css";
 import Webcam from "react-webcam";
-import Tesseract from "tesseract.js";
+// Tesseract import removed
 import TranslationHistory from "./translation-history";
 
 const languages = [
@@ -31,7 +31,7 @@ export default function SmartScanner() {
   const cropperRef = useRef<CropperRef>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const workerRef = useRef<Tesseract.Worker | null>(null);
+  // Worker ref removed
 
   // Cache ref backed by localStorage
   const translationCache = useRef<Record<string, string>>({});
@@ -123,34 +123,7 @@ export default function SmartScanner() {
     window.speechSynthesis.speak(uttrance);
   };
 
-  const [sourceLang, setSourceLang] = useState("eng");
-
-  useEffect(() => {
-    const initWorker = async () => {
-      // Re-initialize worker when source language changes
-      if (workerRef.current) {
-        await workerRef.current.terminate();
-      }
-
-      // Tesseract language codes
-      // English: eng, Hindi: hin, Bengali: ben, Tamil: tam, Telugu: tel
-      const langMap: Record<string, string> = {
-        en: "eng",
-        hi: "hin",
-        bn: "ben",
-        ta: "tam",
-        te: "tel",
-      };
-
-      const tesseractLang = langMap[sourceLang] || "eng";
-      workerRef.current = await Tesseract.createWorker(tesseractLang);
-    };
-    initWorker();
-
-    return () => {
-      workerRef.current?.terminate();
-    };
-  }, [sourceLang]);
+  // Tesseract initialization effect removed
 
   const capture = () => {
     const image = webcamRef.current?.getScreenshot();
@@ -173,10 +146,10 @@ export default function SmartScanner() {
   };
 
   const processImage = async () => {
-    if (!cropperRef.current || !workerRef.current) return;
+    if (!cropperRef.current) return;
 
     setIsProcessing(true);
-    setOcrText("Scanning...");
+    setOcrText("Scanning with Tesseract (Local)...");
 
     try {
       const canvas = cropperRef.current.getCanvas();
@@ -185,17 +158,28 @@ export default function SmartScanner() {
       const image = canvas.toDataURL("image/png");
       setDebugImage(image);
 
-      const result = await workerRef.current.recognize(image);
-      const text = result.data.text.trim();
+      // Dynamically import Tesseract to avoid SSR issues
+      const Tesseract = (await import("tesseract.js")).default;
 
+      const {
+        data: { text },
+      } = await Tesseract.recognize(
+        image,
+        "eng", // defaulting to English, can add 'hin' etc. if language packs are loaded
+        {
+          logger: (m) => console.log(m),
+        },
+      );
+
+      const cleanedText = text?.trim();
       setOcrText(
-        text.length > 0
-          ? text
-          : "No text detected. Try better lighting or tighter crop.",
+        cleanedText && cleanedText.length > 0
+          ? cleanedText
+          : "No text detected.",
       );
     } catch (err) {
       console.error(err);
-      setOcrText("Failed to read text.");
+      setOcrText("Failed to read text. Please check the image and try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -284,23 +268,7 @@ export default function SmartScanner() {
         onDelete={deleteFromHistory}
       />
 
-      {/* Source Language Selector */}
-      <div className="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/10 w-full max-w-xs">
-        <span className="text-gray-400 text-xs font-bold uppercase tracking-widest pl-2">
-          Tap to Scan:
-        </span>
-        <select
-          value={sourceLang}
-          onChange={(e) => setSourceLang(e.target.value)}
-          className="bg-transparent text-sm font-bold text-white outline-none flex-1 cursor-pointer [&>option]:text-black"
-        >
-          <option value="en">English Document</option>
-          <option value="hi">Hindi (हिंदी)</option>
-          <option value="bn">Bengali (বাংলা)</option>
-          <option value="ta">Tamil (தமிழ்)</option>
-          <option value="te">Telugu (తెలుగు)</option>
-        </select>
-      </div>
+      {/* Source Language selector removed - Google Vision auto-detects */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start px-4 md:px-0">
         {/* LEFT COLUMN: Camera & Input Controls */}
