@@ -3,9 +3,11 @@
 import {
   Camera,
   Check,
+  Copy,
   Globe,
   RefreshCw,
   RotateCw,
+  Share2,
   Upload,
   Volume2,
 } from "lucide-react";
@@ -14,6 +16,15 @@ import { Cropper, CropperRef } from "react-advanced-cropper";
 import "react-advanced-cropper/dist/style.css";
 import Webcam from "react-webcam";
 import Tesseract from "tesseract.js";
+import TranslationHistory from "./translation-history";
+
+const languages = [
+  { code: "hi", label: "Hindi (हिंदी)", voice: "hi-IN" },
+  { code: "bn", label: "Bengali (বাংলা)", voice: "bn-IN" },
+  { code: "ta", label: "Tamil (தமிழ்)", voice: "ta-IN" },
+  { code: "te", label: "Telugu (తెలుగు)", voice: "te-IN" },
+  { code: "en", label: "English", voice: "en-US" },
+];
 
 export default function SmartScanner() {
   const webcamRef = useRef<Webcam>(null);
@@ -32,13 +43,20 @@ export default function SmartScanner() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [debugImage, setDebugImage] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [targetLang, setTargetLang] = useState("hi");
+
+  // State for UI rendering of history
+  const [history, setHistory] = useState<Record<string, string>>({});
+  const [showHistory, setShowHistory] = useState(false);
 
   // Load cache from localStorage on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem("ocr-translation-cache");
       if (saved) {
-        translationCache.current = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        translationCache.current = parsed;
+        setHistory(parsed);
       }
     } catch (e) {
       console.error("Failed to load translation cache", e);
@@ -47,6 +65,7 @@ export default function SmartScanner() {
 
   const saveToCache = (text: string, translation: string) => {
     translationCache.current[text] = translation;
+    setHistory({ ...translationCache.current }); // Update UI state
     try {
       localStorage.setItem(
         "ocr-translation-cache",
@@ -57,65 +76,51 @@ export default function SmartScanner() {
     }
   };
 
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [hasHindiVoice, setHasHindiVoice] = useState(false);
+  const deleteFromHistory = (text: string) => {
+    const newCache = { ...translationCache.current };
+    delete newCache[text];
 
-  useEffect(() => {
-    const updateVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      setVoices(availableVoices);
+    translationCache.current = newCache;
+    setHistory(newCache);
 
-      const hindiAvailable = availableVoices.some(
-        (v) => v.lang === "hi-IN" || v.name.toLowerCase().includes("hindi"),
-      );
-      setHasHindiVoice(hindiAvailable);
-    };
-
-    // Chrome loads voices asynchronously
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = updateVoices;
+    try {
+      localStorage.setItem("ocr-translation-cache", JSON.stringify(newCache));
+    } catch (e) {
+      console.error("Failed to update cache", e);
     }
-
-    updateVoices();
-
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
-  }, []);
+  };
 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const speakText = (text: string) => {
     if (!text) return;
-    // Stop any ongoing speech
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utteranceRef.current = utterance; // Prevent garbage collection
+    const uttrance = new SpeechSynthesisUtterance(text);
 
-    // Attempt to find a preferred Hindi voice
-    const hindiVoice =
-      voices.find((v) => v.lang === "hi-IN") ||
-      voices.find((v) => v.name.toLowerCase().includes("hindi"));
+    // dynamic voice selection
+    const voices = window.speechSynthesis.getVoices();
 
-    if (hindiVoice) {
-      utterance.voice = hindiVoice;
-      utterance.lang = hindiVoice.lang;
-    } else {
-      utterance.lang = "hi-IN";
+    //find the target language voice
+    const targetVoiceCode = languages.find((l) => l.code === targetLang)?.voice;
+
+    // find a matching voice in the browser(if any)
+    const matchingVoice = voices.find((v) =>
+      v.lang.includes(targetVoiceCode || ""),
+    );
+
+    if (matchingVoice) {
+      uttrance.voice = matchingVoice;
     }
+    uttrance.lang = targetVoiceCode || "hi-IN";
+    uttrance.rate = 0.9;
 
-    utterance.rate = 0.9;
+    uttrance.onstart = () => setIsSpeaking(true);
+    uttrance.onend = () => setIsSpeaking(false);
+    uttrance.onerror = () => setIsSpeaking(false);
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = (e) => {
-      // Log the specific error string (e.g., 'not-allowed', 'language-unavailable')
-      console.error("Speech synthesis error:", e.error);
-      setIsSpeaking(false);
-    };
-
-    window.speechSynthesis.speak(utterance);
+    utteranceRef.current = uttrance;
+    window.speechSynthesis.speak(uttrance);
   };
 
   useEffect(() => {
@@ -192,7 +197,7 @@ export default function SmartScanner() {
       const res = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: ocrText, targetLang: "hi" }),
+        body: JSON.stringify({ text: ocrText, targetLang }),
       });
 
       const data = await res.json();
@@ -217,143 +222,294 @@ export default function SmartScanner() {
     setDebugImage(null);
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert("Copied to clipboard!");
+  };
+
+  const shareText = (text: string) => {
+    if (navigator.share) {
+      navigator
+        .share({
+          title: "Sahayak Translation",
+          text: text,
+        })
+        .catch(console.error);
+    } else {
+      copyToClipboard(text);
+    }
+  };
+
+  // Unused state removed: voices, hasHindiVoice
+
   return (
-    <div className="flex flex-col items-center gap-4 p-4 w-full max-w-md mx-auto">
-      <div className="relative w-full aspect-[3/4] bg-black rounded-xl overflow-hidden border-2 border-gray-800 shadow-2xl">
-        {!imageSrc ? (
-          <Webcam
-            ref={webcamRef}
-            screenshotFormat="image/png"
-            className="w-full h-full object-cover"
-            videoConstraints={{ facingMode: "environment" }}
-          />
-        ) : (
-          <Cropper
-            ref={cropperRef}
-            src={imageSrc}
-            stencilProps={{ grid: true }}
-            backgroundClassName="bg-black"
-          />
-        )}
+    <div className="w-full max-w-lg md:max-w-6xl mx-auto mt-6 transition-all duration-500">
+      {/* Mobile-only Header for History (Desktop has it in the right column) */}
+      <div className="flex md:hidden justify-end mb-4 px-4">
+        <button
+          onClick={() => setShowHistory(true)}
+          className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-full"
+        >
+          <RefreshCw size={12} /> History
+        </button>
       </div>
 
-      {debugImage && (
-        <div className="w-full p-2 border border-yellow-400 rounded bg-yellow-50 text-xs">
-          <p>OCR Input Preview</p>
-          <img src={debugImage} className="h-20 mt-1 border" alt="OCR Debug" />
-        </div>
-      )}
+      <TranslationHistory
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        history={history}
+        onSelect={(original, translated) => {
+          setOcrText(original);
+          setTranslatedText(translated);
+          setImageSrc(null);
+        }}
+        onDelete={deleteFromHistory}
+      />
 
-      {!imageSrc ? (
-        <div className="flex gap-4">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="bg-gray-700 p-4 rounded-full text-white"
-          >
-            <Upload />
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            hidden
-            accept="image/*"
-            onChange={handleFileUpload}
-          />
-          <button
-            onClick={capture}
-            className="bg-green-600 p-4 rounded-full text-white"
-          >
-            <Camera size={32} />
-          </button>
-        </div>
-      ) : (
-        <div className="flex gap-3 w-full">
-          <button
-            onClick={() => {
-              setImageSrc(null);
-              resetResults();
-            }}
-            className="px-4 py-3 bg-gray-700 text-white rounded-lg"
-          >
-            <RefreshCw size={18} /> Retake
-          </button>
-
-          <button
-            onClick={() => cropperRef.current?.rotateImage(90)}
-            className="px-4 py-3 bg-blue-600 text-white rounded-lg"
-          >
-            <RotateCw size={18} /> Rotate
-          </button>
-
-          <button
-            onClick={processImage}
-            disabled={isProcessing}
-            className="flex-1 bg-green-600 text-white rounded-lg font-bold"
-          >
-            {isProcessing ? (
-              "Reading..."
-            ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start px-4 md:px-0">
+        {/* LEFT COLUMN: Camera & Input Controls */}
+        <div className="flex flex-col gap-6 bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-3xl p-6">
+          <div className="relative w-full aspect-[3/4] md:aspect-video bg-black/40 rounded-2xl overflow-hidden border-2 border-white/10 shadow-inner group">
+            {!imageSrc ? (
               <>
-                <Check /> Read
+                <Webcam
+                  ref={webcamRef}
+                  screenshotFormat="image/png"
+                  className="w-full h-full object-cover opacity-80"
+                  videoConstraints={{ facingMode: "environment" }}
+                />
+                {/* Scanner Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent pointer-events-none animate-scan opacity-50" />
+                <div className="absolute inset-0 border-2 border-white/20 rounded-2xl pointer-events-none" />
               </>
+            ) : (
+              <Cropper
+                ref={cropperRef}
+                src={imageSrc}
+                stencilProps={{
+                  grid: true,
+                  lines: true,
+                  handlers: {
+                    eastSouth: true,
+                    westNorth: true,
+                    westSouth: true,
+                    eastNorth: true,
+                  },
+                }}
+                backgroundClassName="bg-black/90"
+                className="rounded-2xl"
+              />
             )}
-          </button>
-        </div>
-      )}
-
-      {ocrText && (
-        <div className="w-full flex flex-col gap-4">
-          <div className="p-4 bg-gray-50 border rounded">
-            <h3 className="text-xs font-bold uppercase text-gray-500 mb-2">
-              Detected Text
-            </h3>
-            <p className="whitespace-pre-wrap">{ocrText}</p>
           </div>
 
-          <button
-            onClick={translateText}
-            disabled={isTranslating}
-            className="bg-blue-600 text-white py-4 rounded-xl font-bold"
-          >
-            {isTranslating ? (
-              "Translating..."
-            ) : (
-              <>
-                <Globe /> Translate to Hindi
-              </>
-            )}
-          </button>
+          {debugImage && (
+            <div className="w-full p-3 border border-yellow-500/30 rounded-xl bg-yellow-500/10 text-xs text-yellow-200/80 flex items-center justify-between">
+              <span>Debug Preview</span>
+              <img
+                src={debugImage}
+                className="h-10 rounded border border-white/10"
+                alt="OCR Debug"
+              />
+            </div>
+          )}
 
-          {translatedText && (
-            <div className="p-4 bg-blue-50 border rounded">
-              <h3 className="text-xs font-bold uppercase text-blue-600 mb-2">
-                Hindi Translation
-              </h3>
-              <p className="whitespace-pre-wrap">{translatedText}</p>
-              <div className="flex flex-col gap-2 mt-2">
-                <button
-                  onClick={() => speakText(translatedText)}
-                  className={`p-3 rounded-full shadow-sm w-fit transition-all ${
-                    isSpeaking
-                      ? "bg-orange-500 text-white animate-pulse"
-                      : "bg-white text-blue-600 hover:bg-blue-100"
-                  }`}
-                  title="Listen"
-                >
-                  <Volume2 size={24} />
-                </button>
-                {!hasHindiVoice && (
-                  <p className="text-xs text-orange-600 bg-orange-100 p-2 rounded">
-                    ⚠️ Hindi voice not found on this device. You may need to
-                    install the Hindi language pack in your OS settings or use a
-                    different browser.
-                  </p>
+          {/* Control Area */}
+          {!imageSrc ? (
+            <div className="flex gap-6 items-center w-full justify-center py-4">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="group flex flex-col items-center gap-2 p-4 rounded-2xl transition-all hover:bg-white/5"
+              >
+                <div className="p-4 rounded-full bg-white/10 group-hover:bg-blue-500 text-white transition-all shadow-lg border border-white/10 group-hover:scale-110">
+                  <Upload size={24} />
+                </div>
+                <span className="text-xs font-medium text-gray-400 group-hover:text-white">
+                  Upload
+                </span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={handleFileUpload}
+              />
+              <button
+                onClick={capture}
+                className="p-6 rounded-full bg-gradient-to-tr from-blue-500 to-violet-500 text-white shadow-xl shadow-blue-500/20 hover:scale-105 hover:shadow-blue-500/40 transition-all active:scale-95 border-4 border-white/10"
+              >
+                <Camera size={40} />
+              </button>
+              <div className="w-[72px] opacity-0"></div>{" "}
+              {/* Spacer for symmetry */}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 w-full">
+              <button
+                onClick={() => {
+                  setImageSrc(null);
+                  resetResults();
+                }}
+                className="flex items-center justify-center gap-2 px-4 py-4 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl font-medium transition-all border border-white/5 hover:border-white/10"
+              >
+                <RefreshCw size={18} /> Retake
+              </button>
+
+              <button
+                onClick={() => cropperRef.current?.rotateImage(90)}
+                className="flex items-center justify-center gap-2 px-4 py-4 bg-white/5 hover:bg-white/10 text-blue-300 hover:text-blue-200 rounded-xl font-medium transition-all border border-white/5 hover:border-blue-500/30"
+              >
+                <RotateCw size={18} /> Rotate
+              </button>
+
+              <button
+                onClick={processImage}
+                disabled={isProcessing}
+                className="col-span-2 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isProcessing ? (
+                  <>
+                    <RefreshCw className="animate-spin" /> Reading...
+                  </>
+                ) : (
+                  <>
+                    <Check /> Extract Text
+                  </>
                 )}
-              </div>
+              </button>
             </div>
           )}
         </div>
-      )}
+
+        {/* RIGHT COLUMN: Results & History */}
+        <div className="flex flex-col gap-6 md:h-full">
+          {/* Desktop Header with History */}
+          <div className="hidden md:flex items-center justify-between bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-xl">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Globe className="text-blue-400" />
+              Translation Studio
+            </h2>
+            <button
+              onClick={() => setShowHistory(true)}
+              className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl transition-all"
+            >
+              <RefreshCw size={16} /> History
+            </button>
+          </div>
+
+          {/* Empty State for Desktop */}
+          {!ocrText && (
+            <div className="hidden md:flex flex-1 flex-col items-center justify-center p-12 border-2 border-dashed border-white/10 rounded-3xl bg-white/5 text-center min-h-[400px]">
+              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                <Camera className="text-gray-500" size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-gray-300 mb-2">
+                Ready to Scan
+              </h3>
+              <p className="text-gray-500 max-w-xs">
+                Capture an image or upload a file to extract text and translate
+                it instantly.
+              </p>
+            </div>
+          )}
+
+          {ocrText && (
+            <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom duration-500">
+              {/* Detected Text Card */}
+              <div className="p-5 bg-black/20 border border-white/10 rounded-2xl shadow-inner relative group">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                  Detected Text
+                </h3>
+                <p className="whitespace-pre-wrap text-gray-300 text-sm leading-relaxed font-light max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                  {ocrText}
+                </p>
+              </div>
+
+              {/* Language Selector */}
+              <div className="flex items-center gap-3 p-1 pl-4 bg-white/5 border border-white/10 rounded-xl shadow-sm">
+                <Globe className="text-blue-400" size={20} />
+                <select
+                  value={targetLang}
+                  onChange={(e) => {
+                    setTargetLang(e.target.value);
+                    setTranslatedText("");
+                  }}
+                  className="flex-1 bg-transparent font-medium text-gray-200 outline-none w-full py-3 cursor-pointer [&>option]:text-black"
+                >
+                  {languages.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      Translate to {lang.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                onClick={translateText}
+                disabled={isTranslating}
+                className="w-full bg-gradient-to-r from-blue-600 to-violet-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/20 hover:scale-[1.01] transition-all disabled:opacity-70"
+              >
+                {isTranslating ? (
+                  <>
+                    <RefreshCw className="animate-spin" /> Translating...
+                  </>
+                ) : (
+                  <>
+                    <Globe size={18} />
+                    Translate Now
+                  </>
+                )}
+              </button>
+
+              {translatedText && (
+                <div className="group relative p-6 bg-gradient-to-br from-blue-500/10 to-violet-500/10 border border-blue-500/20 rounded-2xl shadow-xl transition-all duration-300 hover:border-blue-500/40">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-blue-400 mb-4 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                    Translation (
+                    {languages.find((l) => l.code === targetLang)?.label})
+                  </h3>
+
+                  <p className="whitespace-pre-wrap text-blue-100 text-lg font-light leading-relaxed mb-8 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+                    {translatedText}
+                  </p>
+
+                  {/* Floating Action Bar */}
+                  <div className="absolute bottom-3 right-3 flex gap-2">
+                    <button
+                      onClick={() => copyToClipboard(translatedText)}
+                      className="p-2.5 rounded-full bg-slate-900/50 text-gray-400 hover:text-white hover:bg-blue-600 border border-white/10 backdrop-blur-md transition-all"
+                      title="Copy"
+                    >
+                      <Copy size={16} />
+                    </button>
+
+                    <button
+                      onClick={() => shareText(translatedText)}
+                      className="p-2.5 rounded-full bg-slate-900/50 text-gray-400 hover:text-white hover:bg-violet-600 border border-white/10 backdrop-blur-md transition-all"
+                      title="Share"
+                    >
+                      <Share2 size={16} />
+                    </button>
+
+                    <button
+                      onClick={() => speakText(translatedText)}
+                      className={`p-2.5 rounded-full border border-white/10 backdrop-blur-md transition-all ${
+                        isSpeaking
+                          ? "bg-orange-500 text-white animate-pulse"
+                          : "bg-slate-900/50 text-gray-400 hover:text-white hover:bg-emerald-600"
+                      }`}
+                      title="Listen"
+                    >
+                      <Volume2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
