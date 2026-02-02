@@ -1,37 +1,76 @@
 "use client";
 
 import {
-    Camera,
-    Check,
-    Copy,
-    Globe,
-    RefreshCw,
-    RotateCw,
-    Share2,
-    Upload,
-    Volume2,
+  Camera,
+  Check,
+  Copy,
+  Globe,
+  Mic,
+  RefreshCw,
+  RotateCw,
+  Share2,
+  Upload,
+  Volume2,
 } from "lucide-react";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { Cropper, CropperRef } from "react-advanced-cropper";
 import "react-advanced-cropper/dist/style.css";
 import Webcam from "react-webcam";
-// Tesseract import removed
 import TranslationHistory from "./translation-history";
+
+interface SpeechRecognitionEvent {
+  results: {
+    [key: number]: {
+      [key: number]: {
+        transcript: string;
+      };
+    };
+  };
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+}
+
+interface SpeechRecognition {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start: () => void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: () => void;
+}
+
+interface WindowWithSpeech extends Window {
+  webkitSpeechRecognition: new () => SpeechRecognition;
+  SpeechRecognition: new () => SpeechRecognition;
+}
 
 const languages = [
   { code: "hi", label: "Hindi (हिंदी)", voice: "hi-IN" },
   { code: "bn", label: "Bengali (বাংলা)", voice: "bn-IN" },
   { code: "ta", label: "Tamil (தமிழ்)", voice: "ta-IN" },
   { code: "te", label: "Telugu (తెలుగు)", voice: "te-IN" },
+  { code: "kan", label: "Kannada (कन्नड़)", voice: "kn-IN" },
+  { code: "mal", label: "Malayalam (मलयालम)", voice: "ml-IN" },
   { code: "en", label: "English", voice: "en-US" },
+];
+
+const ocrLanguages = [
+  { code: "eng", label: "English" },
+  { code: "hin", label: "Hindi (हिंदी)" },
+  { code: "ben", label: "Bengali (বাংলা)" },
+  { code: "tam", label: "Tamil (தமிழ்)" },
+  { code: "tel", label: "Telugu (తెలుగు)" },
+  { code: "kan", label: "Kannada (कन्नड़)" },
+  { code: "mal", label: "Malayalam (मलयालम)" },
 ];
 
 export default function SmartScanner() {
   const webcamRef = useRef<Webcam>(null);
   const cropperRef = useRef<CropperRef>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Worker ref removed
 
   // Cache ref backed by localStorage
   const translationCache = useRef<Record<string, string>>({});
@@ -44,6 +83,9 @@ export default function SmartScanner() {
   const [debugImage, setDebugImage] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [targetLang, setTargetLang] = useState("hi");
+  const [sourceLang, setSourceLang] = useState("eng");
+
+  const [isListening, setIsListening] = useState(false); // Voice Input State
 
   // State for UI rendering of history
   const [history, setHistory] = useState<Record<string, string>>({});
@@ -101,10 +143,7 @@ export default function SmartScanner() {
     // dynamic voice selection
     const voices = window.speechSynthesis.getVoices();
 
-    //find the target language voice
     const targetVoiceCode = languages.find((l) => l.code === targetLang)?.voice;
-
-    // find a matching voice in the browser(if any)
     const matchingVoice = voices.find((v) =>
       v.lang.includes(targetVoiceCode || ""),
     );
@@ -122,8 +161,6 @@ export default function SmartScanner() {
     utteranceRef.current = uttrance;
     window.speechSynthesis.speak(uttrance);
   };
-
-  // Tesseract initialization effect removed
 
   const capture = () => {
     const image = webcamRef.current?.getScreenshot();
@@ -149,7 +186,9 @@ export default function SmartScanner() {
     if (!cropperRef.current) return;
 
     setIsProcessing(true);
-    setOcrText("Scanning with Tesseract (Local)...");
+    setOcrText(
+      `Scanning (${ocrLanguages.find((l) => l.code === sourceLang)?.label})...`,
+    );
 
     try {
       const canvas = cropperRef.current.getCanvas();
@@ -158,18 +197,13 @@ export default function SmartScanner() {
       const image = canvas.toDataURL("image/png");
       setDebugImage(image);
 
-      // Dynamically import Tesseract to avoid SSR issues
       const Tesseract = (await import("tesseract.js")).default;
 
       const {
         data: { text },
-      } = await Tesseract.recognize(
-        image,
-        "eng", // defaulting to English, can add 'hin' etc. if language packs are loaded
-        {
-          logger: (m) => console.log(m),
-        },
-      );
+      } = await Tesseract.recognize(image, sourceLang, {
+        logger: (m) => console.log(m),
+      });
 
       const cleanedText = text?.trim();
       setOcrText(
@@ -188,7 +222,6 @@ export default function SmartScanner() {
   const translateText = async () => {
     if (!ocrText) return;
 
-    // Check cache first (memory)
     if (translationCache.current[ocrText]) {
       setTranslatedText(translationCache.current[ocrText]);
       return;
@@ -207,7 +240,6 @@ export default function SmartScanner() {
 
       setTranslatedText(translated);
 
-      // Update cache on success (Memory + LocalStorage)
       if (data.translatedText) {
         saveToCache(ocrText, translated);
       }
@@ -242,11 +274,76 @@ export default function SmartScanner() {
     }
   };
 
-  // Unused state removed: voices, hasHindiVoice
+  // Voice Input Logic
+  const startVoiceInput = () => {
+    const win = window as unknown as WindowWithSpeech;
+
+    if (!win.webkitSpeechRecognition && !win.SpeechRecognition) {
+      alert(
+        "Voice input is not supported in this browser. Please use Chrome or Edge.",
+      );
+      return;
+    }
+
+    const SpeechRecognition =
+      win.SpeechRecognition || win.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    const langMap: Record<string, string> = {
+      eng: "en-US",
+      hin: "hi-IN",
+      ben: "bn-IN",
+      tam: "ta-IN",
+      tel: "te-IN",
+      kan: "kn-IN",
+      mal: "ml-IN",
+    };
+
+    // Default to 'en-US' if mapping fails
+    recognition.lang = langMap[sourceLang] || "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    setIsListening(true);
+    setOcrText("Listening..."); // Clear/Show listening state in the box immediately
+
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error("Recognition start error:", e);
+      setIsListening(false);
+    }
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const speechResult = event.results[0][0].transcript;
+      setOcrText(speechResult); // Overwrite directly for "Voice Mode"
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+
+      if (event.error === "network") {
+        alert(
+          "Voice input failed. If you are online, your browser (like Brave) might be blocking Google's Speech Service. Please try using Chrome or Edge.",
+        );
+      } else if (event.error === "not-allowed") {
+        alert("Microphone access denied. Please allow microphone permissions.");
+      } else if (event.error === "no-speech") {
+        setOcrText(""); // Clear if nothing heard
+      } else {
+        alert(`Voice input error: ${event.error}`);
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+  };
 
   return (
     <div className="w-full max-w-lg md:max-w-6xl mx-auto mt-6 transition-all duration-500">
-      {/* Mobile-only Header for History (Desktop has it in the right column) */}
       <div className="flex md:hidden justify-end mb-4 px-4">
         <button
           onClick={() => setShowHistory(true)}
@@ -268,10 +365,7 @@ export default function SmartScanner() {
         onDelete={deleteFromHistory}
       />
 
-      {/* Source Language selector removed - Google Vision auto-detects */}
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start px-4 md:px-0">
-        {/* LEFT COLUMN: Camera & Input Controls */}
         <div className="flex flex-col gap-6 bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-3xl p-6">
           <div className="relative w-full aspect-[3/4] md:aspect-video bg-black/40 rounded-2xl overflow-hidden border-2 border-white/10 shadow-inner group">
             {!imageSrc ? (
@@ -287,7 +381,6 @@ export default function SmartScanner() {
                     height: 720,
                   }}
                 />
-                {/* Scanner Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent pointer-events-none animate-scan opacity-50" />
                 <div className="absolute inset-0 border-2 border-white/20 rounded-2xl pointer-events-none" />
               </>
@@ -322,7 +415,6 @@ export default function SmartScanner() {
             </div>
           )}
 
-          {/* Control Area */}
           {!imageSrc ? (
             <div className="flex gap-6 items-center w-full justify-center py-4">
               <button
@@ -343,14 +435,29 @@ export default function SmartScanner() {
                 accept="image/*"
                 onChange={handleFileUpload}
               />
+
               <button
                 onClick={capture}
                 className="p-6 rounded-full bg-gradient-to-tr from-blue-500 to-violet-500 text-white shadow-xl shadow-blue-500/20 hover:scale-105 hover:shadow-blue-500/40 transition-all active:scale-95 border-4 border-white/10"
               >
                 <Camera size={40} />
               </button>
-              <div className="w-[72px] opacity-0"></div>{" "}
-              {/* Spacer for symmetry */}
+
+              <button
+                onClick={startVoiceInput}
+                className={`group flex flex-col items-center gap-2 p-4 rounded-2xl transition-all hover:bg-white/5 ${isListening ? "animate-pulse" : ""}`}
+              >
+                <div
+                  className={`p-4 rounded-full transition-all shadow-lg border border-white/10 group-hover:scale-110 ${isListening ? "bg-red-500 text-white" : "bg-white/10 group-hover:bg-emerald-500 text-white"}`}
+                >
+                  <Mic size={24} />
+                </div>
+                <span
+                  className={`text-xs font-medium group-hover:text-white ${isListening ? "text-red-400 font-bold" : "text-gray-400"}`}
+                >
+                  {isListening ? "Listening" : "Voice"}
+                </span>
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 w-full">
@@ -371,6 +478,23 @@ export default function SmartScanner() {
                 <RotateCw size={18} /> Rotate
               </button>
 
+              <div className="col-span-2 flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                <span className="text-xs text-gray-400 uppercase font-bold tracking-wider">
+                  Read In:
+                </span>
+                <select
+                  value={sourceLang}
+                  onChange={(e) => setSourceLang(e.target.value)}
+                  className="flex-1 bg-transparent text-sm font-medium text-white outline-none cursor-pointer [&>option]:text-black"
+                >
+                  {ocrLanguages.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <button
                 onClick={processImage}
                 disabled={isProcessing}
@@ -390,9 +514,7 @@ export default function SmartScanner() {
           )}
         </div>
 
-        {/* RIGHT COLUMN: Results & History */}
         <div className="flex flex-col gap-6 md:h-full">
-          {/* Desktop Header with History */}
           <div className="hidden md:flex items-center justify-between bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-xl">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Globe className="text-blue-400" />
@@ -406,17 +528,16 @@ export default function SmartScanner() {
             </button>
           </div>
 
-          {/* Empty State for Desktop */}
           {!ocrText && (
             <div className="hidden md:flex flex-1 flex-col items-center justify-center p-12 border-2 border-dashed border-white/10 rounded-3xl bg-white/5 text-center min-h-[400px]">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
                 <Camera className="text-gray-500" size={32} />
               </div>
               <h3 className="text-xl font-bold text-gray-300 mb-2">
-                Ready to Scan
+                Ready to Scan or Speak
               </h3>
               <p className="text-gray-500 max-w-xs">
-                Capture an image or upload a file to extract text and translate
+                Capture an image, upload a file, or use voice input to translate
                 it instantly.
               </p>
             </div>
@@ -424,18 +545,28 @@ export default function SmartScanner() {
 
           {ocrText && (
             <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom duration-500">
-              {/* Detected Text Card */}
               <div className="p-5 bg-black/20 border border-white/10 rounded-2xl shadow-inner relative group">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                  Detected Text
-                </h3>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                    Detected Text
+                  </h3>
+
+                  {/* Secondary Mic Button remains useful for appending text */}
+                  <button
+                    onClick={startVoiceInput}
+                    className={`p-2 rounded-full transition-all flex items-center gap-2 ${isListening ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-white/10 text-gray-400 hover:text-white"}`}
+                    title="Add text via Voice"
+                  >
+                    <Mic size={16} />
+                  </button>
+                </div>
+
                 <p className="whitespace-pre-wrap text-gray-300 text-sm leading-relaxed font-light max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                   {ocrText}
                 </p>
               </div>
 
-              {/* Language Selector */}
               <div className="flex items-center gap-3 p-1 pl-4 bg-white/5 border border-white/10 rounded-xl shadow-sm">
                 <Globe className="text-blue-400" size={20} />
                 <select
@@ -454,22 +585,24 @@ export default function SmartScanner() {
                 </select>
               </div>
 
-              <button
-                onClick={translateText}
-                disabled={isTranslating}
-                className="w-full bg-gradient-to-r from-blue-600 to-violet-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/20 hover:scale-[1.01] transition-all disabled:opacity-70"
-              >
-                {isTranslating ? (
-                  <>
-                    <RefreshCw className="animate-spin" /> Translating...
-                  </>
-                ) : (
-                  <>
-                    <Globe size={18} />
-                    Translate Now
-                  </>
-                )}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={translateText}
+                  disabled={isTranslating}
+                  className="w-full bg-gradient-to-r from-blue-600 to-violet-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/20 hover:scale-[1.01] transition-all disabled:opacity-70"
+                >
+                  {isTranslating ? (
+                    <>
+                      <RefreshCw className="animate-spin" /> Translating...
+                    </>
+                  ) : (
+                    <>
+                      <Globe size={18} />
+                      Translate
+                    </>
+                  )}
+                </button>
+              </div>
 
               {translatedText && (
                 <div className="group relative p-6 bg-gradient-to-br from-blue-500/10 to-violet-500/10 border border-blue-500/20 rounded-2xl shadow-xl transition-all duration-300 hover:border-blue-500/40">
@@ -483,7 +616,6 @@ export default function SmartScanner() {
                     {translatedText}
                   </p>
 
-                  {/* Floating Action Bar */}
                   <div className="absolute bottom-3 right-3 flex gap-2">
                     <button
                       onClick={() => copyToClipboard(translatedText)}
