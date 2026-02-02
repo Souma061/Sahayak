@@ -283,7 +283,7 @@ export default function SmartScanner() {
     try {
       const dataUrl = await toPng(element, {
         cacheBust: true,
-        backgroundColor: "#0f172a", // Slate-900 background for better visibility on all themes
+        backgroundColor: "#020617", // Match new main background for clean exports
         filter: (node) => !node.classList?.contains("exclude-from-share"),
         style: {
           borderRadius: "16px", // Ensure rounded corners in captured image
@@ -399,7 +399,7 @@ export default function SmartScanner() {
       <div className="flex md:hidden justify-end mb-4 px-4">
         <button
           onClick={() => setShowHistory(true)}
-          className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-full"
+          className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 px-3 py-1.5 rounded-full"
         >
           <RefreshCw size={12} /> History
         </button>
@@ -433,7 +433,7 @@ export default function SmartScanner() {
                     height: 720,
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent pointer-events-none animate-scan opacity-50" />
+                <div className="absolute inset-0 bg-violet-500/10 pointer-events-none animate-scan opacity-50" />
                 <div className="absolute inset-0 border-2 border-white/20 rounded-2xl pointer-events-none" />
               </>
             ) : (
@@ -473,10 +473,10 @@ export default function SmartScanner() {
                 onClick={() => fileInputRef.current?.click()}
                 className="group flex flex-col items-center gap-2 p-4 rounded-2xl transition-all hover:bg-white/5"
               >
-                <div className="p-4 rounded-full bg-white/10 group-hover:bg-blue-500 text-white transition-all shadow-lg border border-white/10 group-hover:scale-110">
+                <div className="p-4 rounded-full bg-white/10 group-hover:bg-violet-500 text-white transition-all shadow-lg border border-white/10 group-hover:scale-110">
                   <Upload size={24} />
                 </div>
-                <span className="text-xs font-medium text-gray-400 group-hover:text-white">
+                <span className="text-xs font-medium text-zinc-400 group-hover:text-white">
                   Upload
                 </span>
               </button>
@@ -490,7 +490,7 @@ export default function SmartScanner() {
 
               <button
                 onClick={capture}
-                className="p-6 rounded-full bg-gradient-to-tr from-blue-500 to-violet-500 text-white shadow-xl shadow-blue-500/20 hover:scale-105 hover:shadow-blue-500/40 transition-all active:scale-95 border-4 border-white/10"
+                className="p-6 rounded-full bg-violet-600 text-white shadow-xl shadow-violet-500/10 hover:bg-violet-500 hover:scale-105 transition-all active:scale-95 border-4 border-white/10"
               >
                 <Camera size={40} />
               </button>
@@ -500,12 +500,12 @@ export default function SmartScanner() {
                 className={`group flex flex-col items-center gap-2 p-4 rounded-2xl transition-all hover:bg-white/5 ${isListening ? "animate-pulse" : ""}`}
               >
                 <div
-                  className={`p-4 rounded-full transition-all shadow-lg border border-white/10 group-hover:scale-110 ${isListening ? "bg-red-500 text-white" : "bg-white/10 group-hover:bg-emerald-500 text-white"}`}
+                  className={`p-4 rounded-full transition-all shadow-lg border border-white/10 group-hover:scale-110 ${isListening ? "bg-red-500 text-white" : "bg-white/10 group-hover:bg-teal-500 text-white"}`}
                 >
                   <Mic size={24} />
                 </div>
                 <span
-                  className={`text-xs font-medium group-hover:text-white ${isListening ? "text-red-400 font-bold" : "text-gray-400"}`}
+                  className={`text-xs font-medium group-hover:text-white ${isListening ? "text-red-400 font-bold" : "text-zinc-400"}`}
                 >
                   {isListening ? "Listening" : "Voice"}
                 </span>
@@ -518,20 +518,20 @@ export default function SmartScanner() {
                   setImageSrc(null);
                   resetResults();
                 }}
-                className="flex items-center justify-center gap-2 px-4 py-4 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl font-medium transition-all border border-white/5 hover:border-white/10"
+                className="flex items-center justify-center gap-2 px-4 py-4 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white rounded-xl font-medium transition-all border border-white/5 hover:border-white/10"
               >
                 <RefreshCw size={18} /> Retake
               </button>
 
               <button
                 onClick={() => cropperRef.current?.rotateImage(90)}
-                className="flex items-center justify-center gap-2 px-4 py-4 bg-white/5 hover:bg-white/10 text-blue-300 hover:text-blue-200 rounded-xl font-medium transition-all border border-white/5 hover:border-blue-500/30"
+                className="flex items-center justify-center gap-2 px-4 py-4 bg-white/5 hover:bg-white/10 text-violet-300 hover:text-violet-200 rounded-xl font-medium transition-all border border-white/5 hover:border-violet-500/30"
               >
                 <RotateCw size={18} /> Rotate
               </button>
 
               <div className="col-span-2 flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
-                <span className="text-xs text-gray-400 uppercase font-bold tracking-wider">
+                <span className="text-xs text-zinc-400 uppercase font-bold tracking-wider">
                   Read In:
                 </span>
                 <select
@@ -550,7 +550,7 @@ export default function SmartScanner() {
               <button
                 onClick={processImage}
                 disabled={isProcessing}
-                className="col-span-2 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="col-span-2 flex items-center justify-center gap-2 py-4 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold shadow-lg shadow-teal-500/20 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isProcessing ? (
                   <>
@@ -569,12 +569,12 @@ export default function SmartScanner() {
         <div className="flex flex-col gap-6 md:h-full">
           <div className="hidden md:flex items-center justify-between bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-xl">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Globe className="text-blue-400" />
+              <Globe className="text-violet-400" />
               Translation Studio
             </h2>
             <button
               onClick={() => setShowHistory(true)}
-              className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl transition-all"
+              className="flex items-center gap-2 text-sm font-medium text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl transition-all"
             >
               <RefreshCw size={16} /> History
             </button>
@@ -583,12 +583,12 @@ export default function SmartScanner() {
           {!ocrText && (
             <div className="hidden md:flex flex-1 flex-col items-center justify-center p-12 border-2 border-dashed border-white/10 rounded-3xl bg-white/5 text-center min-h-[400px]">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                <Camera className="text-gray-500" size={32} />
+                <Camera className="text-zinc-500" size={32} />
               </div>
-              <h3 className="text-xl font-bold text-gray-300 mb-2">
+              <h3 className="text-xl font-bold text-zinc-300 mb-2">
                 Ready to Scan or Speak
               </h3>
-              <p className="text-gray-500 max-w-xs">
+              <p className="text-zinc-500 max-w-xs">
                 Capture an image, upload a file, or use voice input to translate
                 it instantly.
               </p>
@@ -599,35 +599,35 @@ export default function SmartScanner() {
             <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom duration-500">
               <div className="p-5 bg-black/20 border border-white/10 rounded-2xl shadow-inner relative group">
                 <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-teal-400 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-teal-500 rounded-full" />
                     Detected Text
                   </h3>
 
                   {/* Secondary Mic Button remains useful for appending text */}
                   <button
                     onClick={startVoiceInput}
-                    className={`p-2 rounded-full transition-all flex items-center gap-2 ${isListening ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-white/10 text-gray-400 hover:text-white"}`}
+                    className={`p-2 rounded-full transition-all flex items-center gap-2 ${isListening ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-white/10 text-zinc-400 hover:text-white"}`}
                     title="Add text via Voice"
                   >
                     <Mic size={16} />
                   </button>
                 </div>
 
-                <p className="whitespace-pre-wrap text-gray-300 text-sm leading-relaxed font-light max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                <p className="whitespace-pre-wrap text-zinc-300 text-sm leading-relaxed font-light max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                   {ocrText}
                 </p>
               </div>
 
               <div className="flex items-center gap-3 p-1 pl-4 bg-white/5 border border-white/10 rounded-xl shadow-sm">
-                <Globe className="text-blue-400" size={20} />
+                <Globe className="text-violet-400" size={20} />
                 <select
                   value={targetLang}
                   onChange={(e) => {
                     setTargetLang(e.target.value);
                     setTranslatedText("");
                   }}
-                  className="flex-1 bg-transparent font-medium text-gray-200 outline-none w-full py-3 cursor-pointer [&>option]:text-black"
+                  className="flex-1 bg-transparent font-medium text-zinc-200 outline-none w-full py-3 cursor-pointer [&>option]:text-black"
                 >
                   {languages.map((lang) => (
                     <option key={lang.code} value={lang.code}>
@@ -641,7 +641,7 @@ export default function SmartScanner() {
                 <button
                   onClick={translateText}
                   disabled={isTranslating}
-                  className="w-full bg-gradient-to-r from-blue-600 to-violet-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/20 hover:scale-[1.01] transition-all disabled:opacity-70"
+                  className="w-full bg-violet-600 hover:bg-violet-500 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg shadow-violet-500/20 hover:scale-[1.01] transition-all disabled:opacity-70"
                 >
                   {isTranslating ? (
                     <>
@@ -659,22 +659,22 @@ export default function SmartScanner() {
               {translatedText && (
                 <div
                   id="translation-card"
-                  className="group relative p-6 bg-gradient-to-br from-blue-500/10 to-violet-500/10 border border-blue-500/20 rounded-2xl shadow-xl transition-all duration-300 hover:border-blue-500/40"
+                  className="group relative p-6 bg-zinc-900/50 border border-zinc-800/50 rounded-2xl shadow-xl transition-all duration-300 hover:border-violet-500/30"
                 >
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-blue-400 mb-4 flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-violet-400 mb-4 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-pulse" />
                     Translation (
                     {languages.find((l) => l.code === targetLang)?.label})
                   </h3>
 
-                  <p className="whitespace-pre-wrap text-blue-100 text-lg font-light leading-relaxed mb-8 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+                  <p className="whitespace-pre-wrap text-zinc-200 text-lg font-light leading-relaxed mb-8 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                     {translatedText}
                   </p>
 
                   <div className="absolute bottom-3 right-3 flex gap-2 exclude-from-share">
                     <button
                       onClick={() => copyToClipboard(translatedText)}
-                      className="p-2.5 rounded-full bg-slate-900/50 text-gray-400 hover:text-white hover:bg-blue-600 border border-white/10 backdrop-blur-md transition-all"
+                      className="p-2.5 rounded-full bg-zinc-950/50 text-zinc-400 hover:text-white hover:bg-violet-600 border border-white/10 backdrop-blur-md transition-all"
                       title="Copy Type"
                     >
                       <Copy size={16} />
@@ -682,7 +682,7 @@ export default function SmartScanner() {
 
                     <button
                       onClick={shareAsImage}
-                      className="p-2.5 rounded-full bg-slate-900/50 text-emerald-400 hover:text-white hover:bg-emerald-600 border border-white/10 backdrop-blur-md transition-all"
+                      className="p-2.5 rounded-full bg-zinc-950/50 text-teal-400 hover:text-white hover:bg-teal-600 border border-white/10 backdrop-blur-md transition-all"
                       title="Share Card (Viral!)"
                     >
                       <ImageIcon size={16} />
@@ -690,7 +690,7 @@ export default function SmartScanner() {
 
                     <button
                       onClick={() => shareText(translatedText)}
-                      className="p-2.5 rounded-full bg-slate-900/50 text-gray-400 hover:text-white hover:bg-violet-600 border border-white/10 backdrop-blur-md transition-all"
+                      className="p-2.5 rounded-full bg-zinc-950/50 text-zinc-400 hover:text-white hover:bg-fuchsia-600 border border-white/10 backdrop-blur-md transition-all"
                       title="Share Text"
                     >
                       <Share2 size={16} />
@@ -701,7 +701,7 @@ export default function SmartScanner() {
                       className={`p-2.5 rounded-full border border-white/10 backdrop-blur-md transition-all ${
                         isSpeaking
                           ? "bg-orange-500 text-white animate-pulse"
-                          : "bg-slate-900/50 text-gray-400 hover:text-white hover:bg-emerald-600"
+                          : "bg-zinc-950/50 text-zinc-400 hover:text-white hover:bg-teal-600"
                       }`}
                       title="Listen"
                     >
