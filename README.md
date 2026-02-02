@@ -2,7 +2,7 @@
 
 **Sahayak** ("Helper") is an AI-powered Progressive Web App (PWA) designed to bridge language barriers. It combines optical character recognition (OCR), voice input, and instant translation to help users easier understand and communicate in multiple Indian languages.
 
-![Sahayak Preview](https://placehold.co/1200x600/0f172a/ffffff?text=Sahayak+Interface+Preview)
+![alt text](image.png)
 
 ## 🚀 Features
 
