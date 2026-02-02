@@ -1,10 +1,12 @@
 "use client";
 
+import { toPng } from "html-to-image";
 import {
   Camera,
   Check,
   Copy,
   Globe,
+  Image as ImageIcon,
   Mic,
   RefreshCw,
   RotateCw,
@@ -271,6 +273,56 @@ export default function SmartScanner() {
         .catch(console.error);
     } else {
       copyToClipboard(text);
+    }
+  };
+
+  const shareAsImage = async () => {
+    const element = document.getElementById("translation-card");
+    if (!element) return;
+
+    try {
+      const dataUrl = await toPng(element, {
+        cacheBust: true,
+        backgroundColor: "#0f172a", // Slate-900 background for better visibility on all themes
+        filter: (node) => !node.classList?.contains("exclude-from-share"),
+        style: {
+          borderRadius: "16px", // Ensure rounded corners in captured image
+        },
+      });
+
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], "sahayak-translation.png", {
+        type: "image/png",
+      });
+
+      if (navigator.share) {
+        // Try sharing the file provided the browser supports it
+        try {
+          await navigator.share({
+            files: [file],
+            title: "Sahayak Translation",
+            text: "Check out this translation from Sahayak!",
+          });
+        } catch (shareError) {
+          console.log(
+            "Share failed or cancelled, falling back to download",
+            shareError,
+          );
+          // If share fails (e.g. user cancels or unsupported on specific platform despite navigator.share existing), fallback to download
+          const link = document.createElement("a");
+          link.download = "sahayak-translation.png";
+          link.href = dataUrl;
+          link.click();
+        }
+      } else {
+        const link = document.createElement("a");
+        link.download = "sahayak-translation.png";
+        link.href = dataUrl;
+        link.click();
+      }
+    } catch (err) {
+      console.error("Failed to share image", err);
+      alert("Failed to create image.");
     }
   };
 
@@ -605,7 +657,10 @@ export default function SmartScanner() {
               </div>
 
               {translatedText && (
-                <div className="group relative p-6 bg-gradient-to-br from-blue-500/10 to-violet-500/10 border border-blue-500/20 rounded-2xl shadow-xl transition-all duration-300 hover:border-blue-500/40">
+                <div
+                  id="translation-card"
+                  className="group relative p-6 bg-gradient-to-br from-blue-500/10 to-violet-500/10 border border-blue-500/20 rounded-2xl shadow-xl transition-all duration-300 hover:border-blue-500/40"
+                >
                   <h3 className="text-xs font-bold uppercase tracking-widest text-blue-400 mb-4 flex items-center gap-2">
                     <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
                     Translation (
@@ -616,19 +671,27 @@ export default function SmartScanner() {
                     {translatedText}
                   </p>
 
-                  <div className="absolute bottom-3 right-3 flex gap-2">
+                  <div className="absolute bottom-3 right-3 flex gap-2 exclude-from-share">
                     <button
                       onClick={() => copyToClipboard(translatedText)}
                       className="p-2.5 rounded-full bg-slate-900/50 text-gray-400 hover:text-white hover:bg-blue-600 border border-white/10 backdrop-blur-md transition-all"
-                      title="Copy"
+                      title="Copy Type"
                     >
                       <Copy size={16} />
                     </button>
 
                     <button
+                      onClick={shareAsImage}
+                      className="p-2.5 rounded-full bg-slate-900/50 text-emerald-400 hover:text-white hover:bg-emerald-600 border border-white/10 backdrop-blur-md transition-all"
+                      title="Share Card (Viral!)"
+                    >
+                      <ImageIcon size={16} />
+                    </button>
+
+                    <button
                       onClick={() => shareText(translatedText)}
                       className="p-2.5 rounded-full bg-slate-900/50 text-gray-400 hover:text-white hover:bg-violet-600 border border-white/10 backdrop-blur-md transition-all"
-                      title="Share"
+                      title="Share Text"
                     >
                       <Share2 size={16} />
                     </button>

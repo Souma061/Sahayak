@@ -11,6 +11,7 @@
   "dependencies": {
     "@google-cloud/vision": "^5.3.4",
     "@huggingface/inference": "^4.13.11",
+    "html-to-image": "^1.11.13",
     "lingo.dev": "^0.128.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
