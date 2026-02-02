@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { RefObject } from "react";
 import { Cropper, CropperRef } from "react-advanced-cropper";
 import "react-advanced-cropper/dist/style.css";
@@ -58,10 +59,13 @@ export default function CameraView({
       {debugImage && (
         <div className="w-full p-3 border border-yellow-500/30 rounded-xl bg-yellow-500/10 text-xs text-yellow-200/80 flex items-center justify-between">
           <span>Debug Preview</span>
-          <img
-            src={debugImage} // Kept simple specifically for debug blob/data URL
-            className="h-10 rounded border border-white/10"
+          <Image
+            src={debugImage}
             alt="OCR Debug"
+            width={100}
+            height={40}
+            className="h-10 w-auto rounded border border-white/10"
+            unoptimized
           />
         </div>
       )}
