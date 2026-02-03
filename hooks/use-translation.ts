@@ -21,22 +21,31 @@ export function useTranslation() {
     }
   }, []);
 
-  const saveToCache = (text: string, translation: string) => {
-    translationCache.current[text] = translation;
-    setHistory({ ...translationCache.current });
-    try {
-      localStorage.setItem(
-        "ocr-translation-cache",
-        JSON.stringify(translationCache.current)
-      );
-    } catch (e) {
-      console.error("Failed to save translation cache", e);
-    }
-  };
+  const getCacheKey = useCallback(
+    (text: string, lang: string) => `${text}-${lang}`,
+    []
+  );
 
-  const deleteFromHistory = (text: string) => {
+  const saveToCache = useCallback(
+    (text: string, lang: string, translation: string) => {
+      const key = getCacheKey(text, lang);
+      translationCache.current[key] = translation;
+      setHistory({ ...translationCache.current });
+      try {
+        localStorage.setItem(
+          "ocr-translation-cache",
+          JSON.stringify(translationCache.current)
+        );
+      } catch (e) {
+        console.error("Failed to save translation cache", e);
+      }
+    },
+    [getCacheKey]
+  );
+
+  const deleteFromHistory = useCallback((key: string) => {
     const newCache = { ...translationCache.current };
-    delete newCache[text];
+    delete newCache[key];
 
     translationCache.current = newCache;
     setHistory(newCache);
@@ -46,13 +55,14 @@ export function useTranslation() {
     } catch (e) {
       console.error("Failed to update cache", e);
     }
-  };
+  }, []);
 
   const translate = useCallback(async (text: string, targetLang: string) => {
     if (!text) return;
 
-    if (translationCache.current[text]) {
-      setTranslatedText(translationCache.current[text]);
+    const cacheKey = getCacheKey(text, targetLang);
+    if (translationCache.current[cacheKey]) {
+      setTranslatedText(translationCache.current[cacheKey]);
       return;
     }
 
@@ -64,20 +74,25 @@ export function useTranslation() {
         body: JSON.stringify({ text, targetLang }),
       });
 
+      if (!res.ok) {
+        throw new Error(`Translation failed with status: ${res.status}`);
+      }
+
       const data = await res.json();
       const translated = data.translatedText || "Translation failed.";
 
       setTranslatedText(translated);
 
       if (data.translatedText) {
-        saveToCache(text, translated);
+        saveToCache(text, targetLang, translated);
       }
-    } catch {
+    } catch (error) {
+      console.error("Translation error:", error);
       setTranslatedText("Failed to translate.");
     } finally {
       setIsTranslating(false);
     }
-  }, []);
+  }, [getCacheKey, saveToCache]);
 
   return {
     translatedText,

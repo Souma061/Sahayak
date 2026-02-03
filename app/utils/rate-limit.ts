@@ -26,7 +26,8 @@ export function checkRateLimit(ip: string) {
 export function RateLimitMiddleware(req: Request) {
   // In Next.js middleware, obtaining IP can be tricky locally vs prod
   // Fallback to "unknown" if headers missing (local dev)
-  const ip = req.headers.get("x-forwarded-for") || "unknown";
+  const forwarded = req.headers.get("x-forwarded-for");
+  const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
 
   if (!checkRateLimit(ip)) {
     return NextResponse.json(

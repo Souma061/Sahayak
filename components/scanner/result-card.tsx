@@ -41,18 +41,19 @@ export default function ResultCard({
     start: number;
     end: number;
   } | null>(null);
-  // Track previous text to reset state continuously during render (avoids effect cascade)
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // Track previous translated text to reset state when it changes
   const [prevTranslatedText, setPrevTranslatedText] = useState(translatedText);
 
+  // Reset state during render if translation changes (prevents cascading renders)
   if (translatedText !== prevTranslatedText) {
     setPrevTranslatedText(translatedText);
     setIsSpeaking(false);
     setHighlightRange(null);
   }
 
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-
-  // Stop speaking if translation changes to avoid syncing issues
+  // Handle side effects (stopping speech)
   useEffect(() => {
     window.speechSynthesis.cancel();
   }, [translatedText]);

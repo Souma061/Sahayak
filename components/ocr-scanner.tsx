@@ -21,8 +21,8 @@ const languages = [
   { code: "bn", label: "Bengali (বাংলা)", voice: "bn-IN" },
   { code: "ta", label: "Tamil (தமிழ்)", voice: "ta-IN" },
   { code: "te", label: "Telugu (తెలుగు)", voice: "te-IN" },
-  { code: "kan", label: "Kannada (कन्नड़)", voice: "kn-IN" },
-  { code: "mal", label: "Malayalam (मलयालम)", voice: "ml-IN" },
+  { code: "kn", label: "Kannada (कन्नड़)", voice: "kn-IN" },
+  { code: "ml", label: "Malayalam (मलयालम)", voice: "ml-IN" },
   { code: "en", label: "English", voice: "en-US" },
 ];
 
