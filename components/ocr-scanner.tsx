@@ -16,25 +16,10 @@ import CameraView from "@/components/scanner/camera-view";
 import ControlPanel from "@/components/scanner/control-panel";
 import ResultCard from "@/components/scanner/result-card";
 
-const languages = [
-  { code: "hi", label: "Hindi (हिंदी)", voice: "hi-IN" },
-  { code: "bn", label: "Bengali (বাংলা)", voice: "bn-IN" },
-  { code: "ta", label: "Tamil (தமிழ்)", voice: "ta-IN" },
-  { code: "te", label: "Telugu (తెలుగు)", voice: "te-IN" },
-  { code: "kn", label: "Kannada (कन्नड़)", voice: "kn-IN" },
-  { code: "ml", label: "Malayalam (मलयालम)", voice: "ml-IN" },
-  { code: "en", label: "English", voice: "en-US" },
-];
+import { OCR_LANGUAGES, TRANSLATION_LANGUAGES } from "@/app/lib/constants";
 
-const ocrLanguages = [
-  { code: "eng", label: "English" },
-  { code: "hin", label: "Hindi (हिंदी)" },
-  { code: "ben", label: "Bengali (বাংলা)" },
-  { code: "tam", label: "Tamil (தமிழ்)" },
-  { code: "tel", label: "Telugu (తెలుగు)" },
-  { code: "kan", label: "Kannada (कन्नड़)" },
-  { code: "mal", label: "Malayalam (मलयालम)" },
-];
+const languages = TRANSLATION_LANGUAGES;
+const ocrLanguages = OCR_LANGUAGES;
 
 export default function SmartScanner() {
   const cropperRef = useRef<CropperRef>(null);
